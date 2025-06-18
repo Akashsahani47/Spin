@@ -50,24 +50,6 @@ export const depositFunds = async (req, res) => {
       status: "pending",
     });
 
-    // Check for a referral and apply 10% commission only once
-    const referral = await Referral.findOne({
-      referredUser: userId,
-      isCommissionGiven: false
-    });
-
-    if (referral) {
-      const referrerWallet = await Wallet.findOne({ userId: referral.referredBy });
-      if (referrerWallet) {
-        const commission = amount * 0.1;
-        referrerWallet.commission += commission;
-        await referrerWallet.save();
-
-        referral.isCommissionGiven = true; // Mark commission as given
-        await referral.save();
-      }
-    }
-
     res.status(200).json({
       success: true,
       message: "Deposit successful",
