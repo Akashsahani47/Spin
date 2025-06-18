@@ -47,7 +47,7 @@ export const signup = async (req, res) => {
           referredUser: newUser._id,
           level: 1,
           commissionPercent: 10,
-          isCommissionGiven: false,
+          isCommissionGive: false,
         });
       } catch (referralError) {
         console.error("Referral creation error:", referralError);
