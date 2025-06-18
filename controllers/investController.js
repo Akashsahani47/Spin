@@ -120,7 +120,7 @@ if (paymentSource === 'reward') {
       
     });
 
-    if (referral && referral.isCommissionGive === false)  { 
+    if (referral && referral.isCommissionGiven === false)  { 
       const referrerId = referral.referredBy;
       const rewardAmount = amount * 0.1;
        console.log("Referral Found For User:", userId);
