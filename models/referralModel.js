@@ -5,7 +5,7 @@ const referralSchema = new Schema(
     referredBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     referredUser: { type: Schema.Types.ObjectId, ref: "User", required: true },
     commissionPercent: { type: Number, required: false },
-    isCommissionGive: { type: Boolean, default: false },
+    isCommissionGiven: { type: Boolean, default: false },
   },
   {
     timestamps: true,
