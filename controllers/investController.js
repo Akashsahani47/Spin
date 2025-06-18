@@ -192,7 +192,7 @@ if (paymentSource === 'reward') {
       
     });
 
-    if (referral && referral.isCommissionGiven === false)  { 
+    if (referral && referral.isCommissionGiven === true)  { 
       const referrerId = referral.referredBy;
       const rewardAmount = amount * 0.1;
        console.log("Referral Found For User:", userId);
@@ -260,7 +260,7 @@ await Notification.create({
 
 console.log(`Reward added for Referred User: ${userRewardWallet.userId.name}, New Balance: ${userRewardWallet.rewardBalance}`);
 
-      referral.isCommissionGiven = true;
+      referral.isCommissionGiven = false;
       await referral.save();
 
        console.log("Reward updated successfully.");
