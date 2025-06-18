@@ -2,6 +2,7 @@ import User from "../models/userModel.js";
 import Wallet from "../models/walletModel.js";
 import Referral from "../models/referralModel.js";
 import jwt from "jsonwebtoken";
+import RewardWallet from "../models/rewardWalletModel.js";
 
 export const signup = async (req, res) => {
   try {
@@ -11,6 +12,7 @@ export const signup = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ success: false, message: "User already exists" });
     }
+    
 
     if (role === 'admin') {
       const existingAdmin = await User.findOne({ role: 'admin' });
@@ -32,6 +34,7 @@ export const signup = async (req, res) => {
 
     // Create wallet for new user
     await Wallet.create({ userId: newUser._id });
+    await RewardWallet.create({ userId: newUser._id });
 
     // Referral Logic
     if (referralCode) {
@@ -111,7 +114,7 @@ export const getUser = async (req, res) => {
     const userId = req.userId;
 
     const [user, wallet] = await Promise.all([
-      User.findOne({ _id: userId, role: "user" }).select('-password -__v'),
+      User.findOne({_id:userId,role:"user"}).select('-password -_v'),
       Wallet.findOne({ userId }).select('-__v')
     ]);
 

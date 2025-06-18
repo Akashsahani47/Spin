@@ -2,6 +2,7 @@ import User from "../models/userModel.js";
 import Wallet from "../models/walletModel.js";
 import Spin from "../models/spinModel.js";
 import Transaction from "../models/transactionModel.js";
+import RewardWallet from "../models/rewardWalletModel.js";
 
 const SPIN_PRICE = 1;
 
@@ -48,6 +49,9 @@ export const purchaseSpin = async (req, res) => {
     }
 };
 
+
+
+
 export const playSpin = async (req, res) => {
   try {
     const userId = req.userId;
@@ -61,17 +65,17 @@ export const playSpin = async (req, res) => {
     let spinValue = 0;
 
     if (!user.hasClaimedFirstSpin) {
-      // First spin reward
+      
       spinValue = 0.11;
       user.hasClaimedFirstSpin = true;
     } else {
-      // Cycle reward: every 3rd spin (cycleSpinCounter 2 means the next spin is the 3rd spin)
+      
       if (user.cycleSpinCounter === 2) {
         spinValue = 1;
-        user.cycleSpinCounter = 0; // Reset the cycle
+        user.cycleSpinCounter = 0; 
       } else {
         spinValue = 0;
-        user.cycleSpinCounter += 1; // Increase the cycle count
+        user.cycleSpinCounter += 1; 
       }
     }
 
@@ -87,14 +91,14 @@ export const playSpin = async (req, res) => {
     user.totalSpinPlayed += 1;
     await user.save();
 
-    // Update wallet
-    const userWallet = await Wallet.findOne({ userId });
-    if (!userWallet) {
+    // Update Rewardwallet
+    const UserReward = await RewardWallet.findOne({ userId });
+    if (!UserReward) {
       return res.status(404).json({ success: false, message: "User wallet not found" });
     }
 
-    userWallet.balance += spinValue;
-    await userWallet.save();
+    UserReward.rewardBalance += spinValue;
+    await UserReward.save();
 
     // Create transaction only if spinValue > 0
     if (spinValue > 0) {
@@ -112,14 +116,17 @@ export const playSpin = async (req, res) => {
       success: true,
       message: "Spin played successfully",
       spin,
-      userData,
-      userWallet
+     UserReward,
+      
     });
 
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+
+
 
 export const getSpinLogs = async (req, res) => {
   try {

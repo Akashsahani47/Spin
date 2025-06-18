@@ -3,7 +3,8 @@ import UserInvestment from "../models/userInvestmentModel.js";
 import Wallet from "../models/walletModel.js";
 import Referral from "../models/referralModel.js";
 import RewardWallet from "../models/rewardWalletModel.js";
-
+import Transaction from "../models/transactionModel.js";
+import Notification from "../models/notificationModel.js"
 export const getInvestmentPlans = async (req, res) => {
   try {
     const plans = await InvestmentPlan.find();
@@ -20,34 +21,160 @@ export const getInvestmentPlans = async (req, res) => {
   }
 };
 
+
+
+
+
+// export const subscribeInvestmentbywallet = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const userId = req.userId;
+//     const { amount } = req.body;
+
+//     if (!amount || typeof amount !== 'number' || amount <= 0) {
+//   return res.status(400).json({ success: false, message: "Invalid amount" });
+// }
+
+// const userWallet = await Wallet.findOne({ userId });
+//     if (!userWallet) {
+//       return res.status(404).json({ success: false, message: "User wallet not found" });
+//     }
+
+//     const plan = await InvestmentPlan.findById(id);
+//     if (!plan || amount < plan.minAmount || userWallet.balance < amount) {
+//       return res.status(400).json({ success: false, message: "Invalid plan or insufficient balance" });
+//     }
+
+//     // Lock the investment amount for the plan duration
+//     const startDate = new Date();
+//     const endDate = new Date();
+//     endDate.setDate(startDate.getDate() + plan.durationDays);
+
+//     userWallet.balance -= amount;
+//     userWallet.lockedBalance += amount;
+//     await userWallet.save();
+
+//     const userInvestment = await UserInvestment.create({
+//       userId,
+//       planId: id,
+//       amount,
+//       startDate,
+//       endDate,
+//       status: "active",
+//       lastPayoutDate: null,
+//     });
+
+//     // 💸 Referral reward logic - 10% of amount goes to RewardWallet
+//     const referral = await Referral.findOne({
+//       referredUser: userId,
+//       level: 1,
+//       isCommissionGiven: { $ne: true },
+//     });
+
+//     if (referral) {
+//       const referrerId = referral.referredBy;
+//       const rewardAmount = amount * 0.1;
+
+//       let refRewardWallet = await RewardWallet.findOne({ userId: referrerId });
+//       if (!refRewardWallet) {
+//         refRewardWallet = new RewardWallet({ userId: referrerId, rewardBalance: rewardAmount });
+//       } else {
+//         refRewardWallet.rewardBalance += rewardAmount;
+//       }
+//       await refRewardWallet.save();
+
+//       referral.isCommissionGiven = true;
+//       await referral.save();
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Subscribed successfully. Amount locked.",
+//       investment: userInvestment,
+//       userWallet,
+//     });
+//   } catch (error) {
+//     console.error("Error in subscribeInvestment:", error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// };
+
+
 export const subscribeInvestment = async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.userId;
-    const { amount } = req.body;
+    const { id } = req.params; // Investment plan ID
+    const userId = req.userId; // Logged-in user ID
+    const { amount, paymentSource } = req.body; // amount and source from frontend
 
+    // Basic validation
     if (!amount || typeof amount !== 'number' || amount <= 0) {
-  return res.status(400).json({ success: false, message: "Invalid amount" });
+      return res.status(400).json({ success: false, message: "Invalid amount" });
+    }
+
+    if (paymentSource !== 'wallet' && paymentSource !== 'reward') {
+      return res.status(400).json({ success: false, message: "Invalid payment source" });
+    }
+
+    // Get user wallet and reward wallet
+    const userWallet = await Wallet.findOne({ userId });
+    const rewardWallet = await RewardWallet.findOne({ userId });
+
+    if (!userWallet || !rewardWallet) {
+      return res.status(404).json({ success: false, message: "User wallet or reward wallet not found" });
+    }
+
+    // Get investment plan
+    const plan = await InvestmentPlan.findById(id);
+    if (!plan || amount < plan.minAmount) {
+      return res.status(400).json({ success: false, message: "Invalid plan or amount less than minimum" });
+    }
+
+    // Balance check
+    if (paymentSource === 'wallet' && userWallet.balance < amount) {
+      return res.status(400).json({ success: false, message: "Insufficient wallet balance" });
+    }
+
+    if (paymentSource === 'reward' && rewardWallet.rewardBalance < amount && (rewardWallet.rewardBalance + userWallet.balance) < amount) {
+      return res.status(400).json({ success: false, message: "Insufficient total balance" });
+    }
+
+    // Deduct the amount
+    // Deduct the amount
+if (paymentSource === 'wallet') {
+  userWallet.balance -= amount;
+  userWallet.lockedBalance += amount;
+  await userWallet.save();
 }
 
-const userWallet = await Wallet.findOne({ userId });
-    if (!userWallet) {
-      return res.status(404).json({ success: false, message: "User wallet not found" });
-    }
+if (paymentSource === 'reward') {
+  if (rewardWallet.rewardBalance >= amount) {
+    rewardWallet.rewardBalance -= amount;
 
-    const plan = await InvestmentPlan.findById(id);
-    if (!plan || amount < plan.minAmount || userWallet.balance < amount) {
-      return res.status(400).json({ success: false, message: "Invalid plan or insufficient balance" });
-    }
+    // 🔐 Lock full investment amount
+    userWallet.lockedBalance += amount;
 
-    // Lock the investment amount for the plan duration
+    await userWallet.save();
+  } else {
+    const remainingAmount = amount - rewardWallet.rewardBalance;
+
+    rewardWallet.rewardBalance = 0;
+
+    userWallet.balance -= remainingAmount;
+
+    // 🔐 You MUST lock full investment amount here
+    userWallet.lockedBalance += amount;
+
+    await userWallet.save();
+  }
+
+  await rewardWallet.save();
+}
+
+
+    // Create investment
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(startDate.getDate() + plan.durationDays);
-
-    userWallet.balance -= amount;
-    userWallet.lockedBalance += amount;
-    await userWallet.save();
 
     const userInvestment = await UserInvestment.create({
       userId,
@@ -59,40 +186,102 @@ const userWallet = await Wallet.findOne({ userId });
       lastPayoutDate: null,
     });
 
-    // 💸 Referral reward logic - 10% of amount goes to RewardWallet
+    // 💸 Referral reward logic - 10% reward
     const referral = await Referral.findOne({
-      referredUser: userId,
-      level: 1,
-      isCommissionGiven: { $ne: true },
+      referredUser: userId
+      
     });
 
-    if (referral) {
+    if (referral && referral.isCommissionGiven === false)  { 
       const referrerId = referral.referredBy;
       const rewardAmount = amount * 0.1;
+       console.log("Referral Found For User:", userId);
+  console.log("Referrer ID:", referrerId);
+  console.log("Reward Amount:", rewardAmount);
 
-      let refRewardWallet = await RewardWallet.findOne({ userId: referrerId });
-      if (!refRewardWallet) {
-        refRewardWallet = new RewardWallet({ userId: referrerId, rewardBalance: rewardAmount });
-      } else {
-        refRewardWallet.rewardBalance += rewardAmount;
-      }
-      await refRewardWallet.save();
+
+
+  // jo reffer kiya hai usko mila 10%
+      let refRewardWallet = await RewardWallet.findOne({ userId: referrerId }).populate('userId', 'name email');
+
+if (!refRewardWallet) {
+  console.log("No wallet found. Creating new wallet.");
+  refRewardWallet = new RewardWallet({ userId: referrerId, rewardBalance: rewardAmount });
+} else {
+  console.log("Existing wallet found for referrer. Adding reward.");
+  refRewardWallet.rewardBalance += rewardAmount;
+}
+await refRewardWallet.save();
+await Transaction.create({
+  userId: referrerId,
+  amount: rewardAmount,
+  type: "referralReward",
+   status:"completed",
+  description: `Reward received from referral of user ${userId}`,
+});
+
+await Notification.create({
+  userId:referrerId,
+  amount:rewardAmount,
+  message: `Reward received from referral of ${refRewardWallet.userId.name} `,
+
+})
+
+console.log(`Reward added for Referrer: ${refRewardWallet.userId.name}, New Balance: ${refRewardWallet.rewardBalance}`);
+
+// jo kiya hai
+let userRewardWallet = await RewardWallet.findOne({ userId: userId }).populate('userId', 'name email');
+
+if (!userRewardWallet) {
+  console.log("No wallet found for referred user. Creating new wallet.");
+  userRewardWallet = new RewardWallet({ userId: userId, rewardBalance: rewardAmount });
+} else {
+  console.log("Existing wallet found for referred user. Adding reward.");
+  userRewardWallet.rewardBalance += rewardAmount;
+}
+await userRewardWallet.save();
+
+await Transaction.create({
+  userId: userId,
+  amount: rewardAmount,
+  type: "referralReward",
+  status:"completed",
+  description: `Reward received for being referred by user ${referrerId}`,
+});
+
+await Notification.create({
+  userId:userId,
+  amount:rewardAmount,
+  message: `Reward received for being referred to ${userRewardWallet.userId.name}`,
+
+})
+
+
+
+console.log(`Reward added for Referred User: ${userRewardWallet.userId.name}, New Balance: ${userRewardWallet.rewardBalance}`);
 
       referral.isCommissionGiven = true;
       await referral.save();
+
+       console.log("Reward updated successfully.");
     }
 
     res.status(200).json({
       success: true,
-      message: "Subscribed successfully. Amount locked.",
+      message: "Subscribed successfully",
       investment: userInvestment,
       userWallet,
+      rewardWallet,
+      
     });
+    console.log("Subscribed successfully")
   } catch (error) {
     console.error("Error in subscribeInvestment:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+
 export const getSubscriptionsbyId = async (req, res) => {
   try {
    const user = await UserInvestment.findById(id)
