@@ -25,79 +25,7 @@ export const getInvestmentPlans = async (req, res) => {
 
 
 
-// export const subscribeInvestmentbywallet = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const userId = req.userId;
-//     const { amount } = req.body;
 
-//     if (!amount || typeof amount !== 'number' || amount <= 0) {
-//   return res.status(400).json({ success: false, message: "Invalid amount" });
-// }
-
-// const userWallet = await Wallet.findOne({ userId });
-//     if (!userWallet) {
-//       return res.status(404).json({ success: false, message: "User wallet not found" });
-//     }
-
-//     const plan = await InvestmentPlan.findById(id);
-//     if (!plan || amount < plan.minAmount || userWallet.balance < amount) {
-//       return res.status(400).json({ success: false, message: "Invalid plan or insufficient balance" });
-//     }
-
-//     // Lock the investment amount for the plan duration
-//     const startDate = new Date();
-//     const endDate = new Date();
-//     endDate.setDate(startDate.getDate() + plan.durationDays);
-
-//     userWallet.balance -= amount;
-//     userWallet.lockedBalance += amount;
-//     await userWallet.save();
-
-//     const userInvestment = await UserInvestment.create({
-//       userId,
-//       planId: id,
-//       amount,
-//       startDate,
-//       endDate,
-//       status: "active",
-//       lastPayoutDate: null,
-//     });
-
-//     // 💸 Referral reward logic - 10% of amount goes to RewardWallet
-//     const referral = await Referral.findOne({
-//       referredUser: userId,
-//       level: 1,
-//       isCommissionGiven: { $ne: true },
-//     });
-
-//     if (referral) {
-//       const referrerId = referral.referredBy;
-//       const rewardAmount = amount * 0.1;
-
-//       let refRewardWallet = await RewardWallet.findOne({ userId: referrerId });
-//       if (!refRewardWallet) {
-//         refRewardWallet = new RewardWallet({ userId: referrerId, rewardBalance: rewardAmount });
-//       } else {
-//         refRewardWallet.rewardBalance += rewardAmount;
-//       }
-//       await refRewardWallet.save();
-
-//       referral.isCommissionGiven = true;
-//       await referral.save();
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Subscribed successfully. Amount locked.",
-//       investment: userInvestment,
-//       userWallet,
-//     });
-//   } catch (error) {
-//     console.error("Error in subscribeInvestment:", error);
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// };
 
 
 export const subscribeInvestment = async (req, res) => {
@@ -192,7 +120,7 @@ if (paymentSource === 'reward') {
       
     });
 
-    if (referral && referral.isCommissionGiven === true)  { 
+    if (referral && referral.isCommissionGive === false)  { 
       const referrerId = referral.referredBy;
       const rewardAmount = amount * 0.1;
        console.log("Referral Found For User:", userId);
@@ -260,7 +188,7 @@ await Notification.create({
 
 console.log(`Reward added for Referred User: ${userRewardWallet.userId.name}, New Balance: ${userRewardWallet.rewardBalance}`);
 
-      referral.isCommissionGiven = false;
+      referral.isCommissionGiven = true;
       await referral.save();
 
        console.log("Reward updated successfully.");
